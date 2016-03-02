@@ -1,9 +1,11 @@
+import java.io.IOException;
+
 /**
  * Created by Andre on 02/03/2016.
  */
 public class Main {
 
-    public static void main(String[] args){
+    public static void main(String[] args) throws IOException{
         // Set up render system and register input callbacks
         //setupGraphics();
         //setupInput();
@@ -11,7 +13,10 @@ public class Main {
         Chip8 myChip8 = new Chip8();
         // Initialize the Chip8 system and load the game into the memory
         myChip8.initialize();
-        myChip8.loadGame("pong");
+
+        String gamename = "pong2.C8";
+
+        myChip8.loadGame("C:\\Users\\Andre\\Documents\\C8games\\"+gamename);
 
         // Emulation loop
         for(;;)

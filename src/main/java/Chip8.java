@@ -1,3 +1,7 @@
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Random;
 
 /**
@@ -376,8 +380,24 @@ public class Chip8 {
         I = opcode & 0x0FFF;
     }
 
-    public void loadGame(String game ){
+    public void loadGame(String game ) throws FileNotFoundException, IOException{
 
+        File f = new File(game);
+
+        FileInputStream fin = new FileInputStream(f);
+        int buffer_size = fin.available();
+        byte[] buffer = new byte[buffer_size];
+        fin.read(buffer);
+
+        for(int i=0; i<buffer_size ; i++){
+
+            memory[512+i] = buffer[i];
+        }
+
+        System.out.println("buffer dump");
+        for(byte b: buffer){
+            System.out.print(b);
+        }
     }
 
     public boolean drawFlag(){
