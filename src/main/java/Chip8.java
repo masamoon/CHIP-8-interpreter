@@ -1,7 +1,7 @@
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Random;
 
 /**
@@ -10,14 +10,14 @@ import java.util.Random;
 public class Chip8 {
 
     private short pc;
-    private int opcode;
-    private int I;
-    private int sp;
-    private int[] memory;
+    private short opcode;
+    private short I;
+    private short sp;
+    private byte[] memory;
     private byte delay_timer;
     private byte sound_timer;
     private short[] stack;
-    private int[] V;
+    private byte[] V;
     private short[] gfx;
     private boolean drawFlag;
     private char[] chip8_fontset;
@@ -25,7 +25,7 @@ public class Chip8 {
 
 
     public Chip8(){
-        memory = new int[4096]; //4K memory
+        memory = new byte[4096]; //4K memory
         stack = new short[16]; //16 levels of stack
         gfx = new short[2048]; // 64*32 pixels
         chip8_fontset = new char[80];
@@ -36,11 +36,11 @@ public class Chip8 {
     public void initialize()
     {
 
-        pc     = 0x200;  // Program counter starts at 0x200
-        opcode = 0;      // Reset current opcode
-        I      = 0;      // Reset index register
-        sp     = 0;      // Reset stack pointer
-        chip8_fontset = new char[]{0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+        this.pc     = 0x200;  // Program counter starts at 0x200
+        this.opcode = 0;      // Reset current opcode
+        this.I      = 0;      // Reset index register
+        this.sp     = 0;      // Reset stack pointer
+        this.chip8_fontset = new char[]{0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
                 0x20, 0x60, 0x20, 0x20, 0x70, // 1
                 0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
                 0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
@@ -64,14 +64,15 @@ public class Chip8 {
 
         // Load fontset
         for(int i = 0; i < 80; ++i)
-            memory[i] = chip8_fontset[i];
+            memory[i] = (byte) chip8_fontset[i];
 
         // Reset timers
     }
 
     public void emulateCycle() {
         // Fetch Opcode
-        opcode = (memory[pc] << 8) | memory[pc + 1];
+        opcode = (short) ((memory[pc] << 8) | memory[pc + 1]);
+        System.out.println("current opcode: "+Integer.toHexString(opcode & 0xffff));
         // Decode Opcode
         switch (opcode & 0xF000) {
             //opcodes//
@@ -115,7 +116,7 @@ public class Chip8 {
                 break;
 
             case 0x6000: //Sets VX to NN.
-                V[(opcode & 0x0F00) >> 8] = opcode & 0x00FF;
+                V[(opcode & 0x0F00) >> 8] = (byte) (opcode & 0x00FF);
                 pc += 2;
                 break;
 
@@ -165,7 +166,7 @@ public class Chip8 {
                         break;
 
                     case 0x0006: // 0x8XY6: Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift
-                        V[0xF] = V[(opcode & 0x0F00) >> 8] & 0x1;
+                        V[0xF] = (byte) (V[(opcode & 0x0F00) >> 8] & 0x1);
                         V[(opcode & 0x0F00) >> 8] >>= 1;
                         pc += 2;
                         break;
@@ -175,12 +176,12 @@ public class Chip8 {
                             V[0xF] = 0; // there is a borrow
                         else
                             V[0xF] = 1;
-                        V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x00F0) >> 4] - V[(opcode & 0x0F00) >> 8];
+                        V[(opcode & 0x0F00) >> 8] =(byte)( V[(opcode & 0x00F0) >> 4] - V[(opcode & 0x0F00) >> 8]);
                         pc += 2;
                         break;
 
                     case 0x000E: // 0x8XYE: Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift
-                        V[0xF] = V[(opcode & 0x0F00) >> 8] >> 7;
+                        V[0xF] = (byte)(V[(opcode & 0x0F00) >> 8] >> 7);
                         V[(opcode & 0x0F00) >> 8] <<= 1;
                         pc += 2;
                         break;
@@ -200,7 +201,7 @@ public class Chip8 {
 
 
             case 0xA000: //ANNN: Setts I to the address NNN
-                I = opcode & 0x0FFF;
+                I = (byte) (opcode & 0x0FFF);
                 pc += 2;
                 break;
 
@@ -212,7 +213,7 @@ public class Chip8 {
 
                 Random rand = new Random();
                 int r = rand.nextInt(255);
-                V[(opcode & 0x0F00) >> 8] = (r % 0xFF) & (opcode & 0x00FF);
+                V[(opcode & 0x0F00) >> 8] = (byte)((r % 0xFF) & (opcode & 0x00FF));
                 pc += 2;
                 break;
 
@@ -232,9 +233,9 @@ public class Chip8 {
                 break;
 
             case 0x0033:
-                memory[I] = V[(opcode & 0x0F00) >> 8] / 100;
-                memory[I + 1] = (V[(opcode & 0x0F00) >> 8] / 10) % 10;
-                memory[I + 2] = (V[(opcode & 0x0F00) >> 8] % 100) % 10;
+                memory[I] = (byte)(V[(opcode & 0x0F00) >> 8] / 100);
+                memory[I + 1] = (byte)((V[(opcode & 0x0F00) >> 8] / 10) % 10);
+                memory[I + 2] = (byte)((V[(opcode & 0x0F00) >> 8] % 100) % 10);
                 pc += 2;
                 break;
 
@@ -292,7 +293,7 @@ public class Chip8 {
 
                                 for (int i = 0; i < 16; ++i) {
                                     if (key[i] != 0) {
-                                        V[(opcode & 0x0F00) >> 8] = i;
+                                        V[(opcode & 0x0F00) >> 8] = (byte)i;
                                         keyPress = true;
                                     }
                                 }
@@ -325,14 +326,14 @@ public class Chip8 {
                                 break;
 
                             case 0x0029: // FX29: Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font
-                                I = V[(opcode & 0x0F00) >> 8] * 0x5;
+                                I = (byte)(V[(opcode & 0x0F00) >> 8] * 0x5);
                                 pc += 2;
                                 break;
 
                             case 0x0033: // FX33: Stores the Binary-coded decimal representation of VX at the addresses I, I plus 1, and I plus 2
-                                memory[I] = V[(opcode & 0x0F00) >> 8] / 100;
-                                memory[I + 1] = (V[(opcode & 0x0F00) >> 8] / 10) % 10;
-                                memory[I + 2] = (V[(opcode & 0x0F00) >> 8] % 100) % 10;
+                                memory[I] = (byte)(V[(opcode & 0x0F00) >> 8] / 100);
+                                memory[I + 1] = (byte)((V[(opcode & 0x0F00) >> 8] / 10) % 10);
+                                memory[I + 2] = (byte)((V[(opcode & 0x0F00) >> 8] % 100) % 10);
                                 pc += 2;
                                 break;
 
@@ -377,7 +378,7 @@ public class Chip8 {
     }
 
     public void setI(String setto){
-        I = opcode & 0x0FFF;
+        I = (byte)(opcode & 0x0FFF);
     }
 
     public void loadGame(String game ) throws FileNotFoundException, IOException{
@@ -385,23 +386,36 @@ public class Chip8 {
         File f = new File(game);
 
         FileInputStream fin = new FileInputStream(f);
-        int buffer_size = fin.available();
-        byte[] buffer = new byte[buffer_size];
-        fin.read(buffer);
 
-        for(int i=0; i<buffer_size ; i++){
 
-            memory[512+i] = buffer[i];
+        long buffer_size_long = f.length();
+        int buffer_size = (int) buffer_size_long;
+
+        byte[] byte_buffer = new byte[buffer_size];
+        short[] short_buffer = new short[buffer_size/2];
+        fin.read(byte_buffer);
+        fin.close();
+
+        ByteBuffer.wrap(byte_buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(short_buffer);
+
+
+        for(int i=0; i<buffer_size/2 ; i++){
+
+            memory[512+i] = (byte) short_buffer[i];
         }
 
         System.out.println("buffer dump");
-        for(byte b: buffer){
-            System.out.print(b);
+        for(short b: short_buffer){
+            System.out.println();
         }
     }
 
     public boolean drawFlag(){
         return this.drawFlag;
+    }
+
+    public int getOpcode(){
+        return this.opcode;
     }
 
     public void setKeys(){

@@ -14,7 +14,7 @@ public class Main {
         // Initialize the Chip8 system and load the game into the memory
         myChip8.initialize();
 
-        String gamename = "pong2.C8";
+        String gamename = "invaders.C8";
 
         myChip8.loadGame("C:\\Users\\Andre\\Documents\\C8games\\"+gamename);
 
@@ -24,6 +24,7 @@ public class Main {
             // Emulate one cycle
             myChip8.emulateCycle();
 
+           // System.out.println("current opcode: "+ Integer.toHexString(myChip8.getOpcode()));
             // If the draw flag is set, update the screen
             if(myChip8.drawFlag())
                 drawGraphics();
