@@ -1,7 +1,11 @@
+import com.sun.org.apache.xerces.internal.impl.dv.util.HexBin;
+
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Random;
 
 /**
@@ -10,7 +14,7 @@ import java.util.Random;
 public class Chip8 {
 
     private short pc;
-    private short opcode;
+    private int opcode;
     private short I;
     private short sp;
     private byte[] memory;
@@ -71,8 +75,9 @@ public class Chip8 {
 
     public void emulateCycle() {
         // Fetch Opcode
-        opcode = (short) ((memory[pc] << 8) | memory[pc + 1]);
-        System.out.println("current opcode: "+Integer.toHexString(opcode & 0xffff));
+        opcode = ((memory[pc] << 8) + memory[pc + 1]);
+        //System.out.println("current opcode: "+Integer.toHexString(opcode & 0xffff));
+        //System.out.println("current pc: "+pc);
         // Decode Opcode
         switch (opcode & 0xF000) {
             //opcodes//
@@ -264,23 +269,28 @@ public class Chip8 {
                 break;
 
             case 0xE000:
-                switch (opcode & 0x00FF) {
-                    // EX9E: Skips the next instruction
-                    // if the key stored in VX is pressed
-                    case 0x009E:
-                        if (key[V[(opcode & 0x0F00) >> 8]] != 0)
-                            pc += 4;
-                        else
-                            pc += 2;
-                        break;
-                    case 0x00A1: // EXA1: Skips the next instruction if the key stored in VX isn't pressed
-                        if (key[V[(opcode & 0x0F00) >> 8]] == 0)
+                switch(opcode & 0x00FF)
+                {
+                    case 0x009E: // EX9E: Skips the next instruction if the key stored in VX is pressed
+                        if(key[V[(opcode & 0x0F00) >> 8]] != 0)
                             pc += 4;
                         else
                             pc += 2;
                         break;
 
-                    case 0xF000:
+                    case 0x00A1: // EXA1: Skips the next instruction if the key stored in VX isn't pressed
+                        if(key[V[(opcode & 0x0F00) >> 8]] == 0)
+                            pc += 4;
+                        else
+                            pc += 2;
+                        break;
+
+                    default:
+                        System.out.printf ("Unknown opcode [0xE000]: 0x%X\n", opcode);
+                }
+                break;
+
+            case 0xF000:
                         switch (opcode & 0x00FF) {
                             case 0x0007: // FX07: Sets VX to the value of the delay timer
                                 V[(opcode & 0x0F00) >> 8] = delay_timer;
@@ -303,8 +313,9 @@ public class Chip8 {
                                     return;
 
                                 pc += 2;
+                                break;
                             }
-                            break;
+
 
                             case 0x0015: // FX15: Sets the delay timer to VX
                                 delay_timer = (byte) V[(opcode & 0x0F00) >> 8];
@@ -369,16 +380,25 @@ public class Chip8 {
                         }
                 }
         }
-    }
 
-    public void decodeOpcode(Integer opcode){
-        if(opcode.toString().startsWith("A")){
-            setI(opcode.toString().substring(1));
-        }
-    }
+
+
 
     public void setI(String setto){
         I = (byte)(opcode & 0x0FFF);
+    }
+
+    public static void copy(InputStream input,
+                            OutputStream output,
+                            int bufferSize)
+            throws IOException {
+        byte[] buf = new byte[bufferSize];
+        int bytesRead = input.read(buf);
+        while (bytesRead != -1) {
+            output.write(buf, 0, bytesRead);
+            bytesRead = input.read(buf);
+        }
+        output.flush();
     }
 
     public void loadGame(String game ) throws FileNotFoundException, IOException{
@@ -392,22 +412,45 @@ public class Chip8 {
         int buffer_size = (int) buffer_size_long;
 
         byte[] byte_buffer = new byte[buffer_size];
-        short[] short_buffer = new short[buffer_size/2];
-        fin.read(byte_buffer);
+
+       /* fin.read(byte_buffer);
         fin.close();
+        byte[] encoded_bytes = Base64.getEncoder().encode(byte_buffer);*/
 
-        ByteBuffer.wrap(byte_buffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(short_buffer);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        copy(new FileInputStream(f), baos, buffer_size);
+        byte_buffer = baos.toByteArray();
 
 
-        for(int i=0; i<buffer_size/2 ; i++){
+        //for(byte b: byte_buffer){
+        String encoded_hex = HexBin.encode(byte_buffer);
+        int len = encoded_hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(encoded_hex.charAt(i), 16) << 4)
+                    + Character.digit(encoded_hex.charAt(i+1), 16));
+        }
 
-            memory[512+i] = (byte) short_buffer[i];
+        if((4096-512) > buffer_size) {
+            for (int i = 0; i < buffer_size; i++) {
+
+                memory[512 + i] = data[i];
+            }
+        }
+        else{
+            System.out.println("ROM file to big for memory");
+            System.exit(1);
         }
 
         System.out.println("buffer dump");
-        for(short b: short_buffer){
-            System.out.println();
+
+        for(byte b: data){
+            System.out.println(Integer.toHexString(b));
         }
+
+
+       // }
     }
 
     public boolean drawFlag(){
@@ -420,6 +463,10 @@ public class Chip8 {
 
     public void setKeys(){
 
+    }
+
+    public short[] gfx(){
+        return this.gfx;
     }
 
 }
